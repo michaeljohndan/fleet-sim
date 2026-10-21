@@ -15,7 +15,7 @@ Gate:     scripts/check.sh PASS (<test count> tests) | FAIL (<what>)
 Approved: <yes, by John on YYYY-MM-DD>
 ```
 
-## 4. Context file, iteration log, benchmark — (this commit)
+## 4. Context file, iteration log, benchmark — cf270a6
 What:     CLAUDE.md, ITERATIONS.md, README.md, examples/bench.rs, .claude/settings.json Stop hook
 Why:      hand-off context for the next agent or engineer; measurable performance claims
 Fixes:    no shared working agreement; no evidence that output dominates cost
