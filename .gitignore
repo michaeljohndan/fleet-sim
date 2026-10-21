@@ -1,2 +1,18 @@
 /target
 CLAUDE.local.md
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Nix
+result
+result-*
+.direnv/
+
+# Editors
+.idea/
+*.swp

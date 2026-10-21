@@ -1,4 +1,4 @@
-# fleet_sim
+# Fleet Simulation
 
 A deterministic, turn-based fleet simulation. It reads one JSON command per line on stdin
 and writes exactly one JSON response per line on stdout. Implements the base spec,
