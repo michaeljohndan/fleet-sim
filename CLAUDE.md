@@ -78,6 +78,7 @@ Risk:           <what could break; how the gate would catch it>
 | D14 | output order: vessels in init order, cargo in insertion order (entry removed at 0) |
 | D15 | cargo mode on iff init has `dock_throughput`; base mode prints no cargo fields |
 | D16 | all messages in `SimError`'s `Display`; spec wording reproduced exactly |
+| D18 | swap with load == unload destination costs 0 (no net change, per D8): every path to the same state costs the same |
 
 ## Architecture (one job per module)
 

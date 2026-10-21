@@ -337,6 +337,9 @@ impl World {
                 let mut after = self.planned.vessels[vessel].cargo.clone();
                 after.remove(unload, 1);
                 after.add(load, 1);
+                // D18: a swap with load == unload leaves the cargo unchanged, so the
+                // net-change rule (D8) costs it 0 operations, exactly like load then
+                // unload of the same destination. Cost depends only on the result.
                 self.check_throughput(location, vessel, &after)?;
                 Ok(Effect::Swap {
                     vessel,

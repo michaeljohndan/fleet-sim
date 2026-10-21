@@ -533,3 +533,81 @@ fn pending_log_records_accepted_commands_and_clears_on_tick() {
     h.tick();
     assert!(h.sim.world().unwrap().pending().is_empty());
 }
+
+// ---------------------------------------------------------------------- D18
+
+/// Dock 0 throughput 1; v1 already carries one dest-2 unit (committed);
+/// the dock still holds one dest-2 unit and one dest-1 unit.
+fn carrying_dest_two() -> Harness {
+    let mut h = docked(
+        "[1,2,2]",
+        r#"[{"location":0,"destination":2,"quantity":2},{"location":0,"destination":1,"quantity":1}]"#,
+    );
+    h.cmd("load", &dest("v1", 2));
+    h.tick();
+    h
+}
+
+#[test]
+fn d18_same_destination_swap_costs_zero_operations() {
+    let mut h = carrying_dest_two();
+    h.cmd(
+        "swap",
+        r#"{"vessel_id":"v1","load_destination":2,"unload_destination":2}"#,
+    );
+    // The swap used none of the budget of 1, so a real load still fits...
+    h.cmd("load", &dest("v1", 1));
+    // ...and the next one is the first to exceed it.
+    assert_eq!(
+        h.cmd_err("load", &dest("v1", 2)),
+        "transfer of 2 operations exceeds dock throughput of 1 at location 0"
+    );
+}
+
+#[test]
+fn d18_same_destination_swap_changes_no_cargo() {
+    let mut h = carrying_dest_two();
+    let before = h.state();
+    h.cmd(
+        "swap",
+        r#"{"vessel_id":"v1","load_destination":2,"unload_destination":2}"#,
+    );
+    let after = h.tick();
+    assert_eq!(
+        after["vessels"]["v1"]["cargo"],
+        before["vessels"]["v1"]["cargo"]
+    );
+    // Dock contents are identical; only their order may differ (D17).
+    let sorted = |v: &serde_json::Value| {
+        let mut items: Vec<String> = v["cargo"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e.to_string())
+            .collect();
+        items.sort();
+        items
+    };
+    assert_eq!(sorted(&after), sorted(&before));
+}
+
+#[test]
+fn d18_every_path_to_the_same_state_costs_the_same() {
+    // Throughput 1: each path must cost exactly 1 to be accepted.
+    let swap = r#"{"vessel_id":"v1","load_destination":1,"unload_destination":2}"#;
+    let mut a = carrying_dest_two();
+    a.cmd("swap", swap);
+    let mut b = carrying_dest_two();
+    b.cmd("load", &dest("v1", 1));
+    b.cmd("unload", &dest("v1", 2));
+    let mut c = carrying_dest_two();
+    c.cmd("unload", &dest("v1", 2));
+    c.cmd("load", &dest("v1", 1));
+    let (ta, tb, tc) = (a.tick(), b.tick(), c.tick());
+    assert_eq!(ta["vessels"], tb["vessels"]);
+    assert_eq!(ta["vessels"], tc["vessels"]);
+    assert_eq!(
+        ta["vessels"]["v1"]["cargo"],
+        json!([{"destination":1,"quantity":1}])
+    );
+}
