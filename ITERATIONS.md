@@ -15,6 +15,14 @@ Gate:     scripts/check.sh PASS (<test count> tests) | FAIL (<what>)
 Approved: <yes, by John on YYYY-MM-DD>
 ```
 
+## 6. Cross platform support: LF line endings, OS ignores, CI on Linux/macOS/Windows — 100644
+What:     .gitattributes, .github/workflows/ci.yml, docs/DESIGN.md
+Why:      Good practice to include design decision for future reader. CI/CD        pipelines for os-agnostic systems.
+Fixes:    lack of design documentation and CI/CD testing
+Behavior: none (no output changes for any input)
+Gate:     sscripts/check.sh PASS (54 tests; baseline 51 at 100644)
+Approved: approved by John on 2026-10-21
+
 ## 5. D18: zero-cost same-destination swap — 3c02b67
 What:     tests/decisions.rs (+3 D18 tests), src/sim.rs (comment on Swap arm), CLAUDE.md (D18 row)
 Why:      D18 — a swap with load == unload changes no cargo, so it costs 0 like

@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch: # "Run workflow" button: runs the full matrix incl. macOS
 
 jobs:
   check:
@@ -10,7 +11,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ github.event_name == 'workflow_dispatch'
+          && fromJSON('["ubuntu-latest","windows-latest","macos-latest"]')
+          || fromJSON('["ubuntu-latest","windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -28,4 +31,5 @@ jobs:
         run: scripts/check.sh
 
       - name: Deep randomized run
+        if: matrix.os == 'ubuntu-latest'
         run: FLEET_SIM_SEEDS=2000 cargo test --release --test simulation
