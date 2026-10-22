@@ -15,16 +15,17 @@ HOW TO USE
 
 | | |
 |---|---|
-| Author | |
+| Author | John Lee |
 | Version / commit | |
-| Date | |
-| Status | Draft / Final |
+| Date | 10/22/2026 |
+| Status | Draft |
 
 ## 1. Scope
 
 ### 1.1 Identification
 <!-- What is this software called, what version or commit does this doc describe,
      and which parts of the spec does it implement (base, Follow-on 1, Follow-on 2)? -->
+This program is called Fleet Simulation Engine and this design document  
 
 ### 1.2 System overview
 <!-- In 3-5 sentences: what problem does the simulator solve, who or what drives it
