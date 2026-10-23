@@ -15,6 +15,15 @@ Gate:     scripts/check.sh PASS (<test count> tests) | FAIL (<what>)
 Approved: <yes, by John on YYYY-MM-DD>
 ```
 
+## 8. Correct iteration 6 log entry — 661c396
+What:     ITERATIONS.md (entry 6 heading and Gate line)
+Why:      scripts/bisect.sh relies on the log's hashes to find the last green commit
+Fixes:    entry 6 hash was "100644" (a file mode from a diff header), "sscripts" typo,
+          baseline recorded as 51 tests at 100644 instead of 54 at c32464f
+Behavior: none (docs only)
+Gate:     scripts/check.sh PASS before and after (baseline at bd59a71)
+Approved: Proposal 7 (hash, typo, baseline; What line left as written), approved by John on 2026-10-22
+
 ## 7. README: LinkedIn link in Authors — 13a71db
 What:     README.md (Authors line)
 Why:      author contact info requested by John
