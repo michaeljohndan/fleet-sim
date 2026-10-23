@@ -23,12 +23,12 @@ Behavior: none (docs only)
 Gate:     scripts/check.sh PASS before and after (baseline at 273957a)
 Approved: Proposal 6, approved by John on 2026-10-22
 
-## 6. Cross platform support: LF line endings, OS ignores, CI on Linux/macOS/Windows — 100644
+## 6. Cross platform support: LF line endings, OS ignores, CI on Linux/macOS/Windows — 839340d
 What:     .gitattributes, .github/workflows/ci.yml, docs/DESIGN.md
 Why:      Good practice to include design decision for future reader. CI/CD        pipelines for os-agnostic systems.
 Fixes:    lack of design documentation and CI/CD testing
 Behavior: none (no output changes for any input)
-Gate:     sscripts/check.sh PASS (54 tests; baseline 51 at 100644)
+Gate:     scripts/check.sh PASS (54 tests; baseline 54 at c32464f)
 Approved: approved by John on 2026-10-21
 
 ## 5. D18: zero-cost same-destination swap — 3c02b67
