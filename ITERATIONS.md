@@ -15,6 +15,14 @@ Gate:     scripts/check.sh PASS (<test count> tests) | FAIL (<what>)
 Approved: <yes, by John on YYYY-MM-DD>
 ```
 
+## 7. README: LinkedIn link in Authors — 13a71db
+What:     README.md (Authors line)
+Why:      author contact info requested by John
+Fixes:    README had no LinkedIn link
+Behavior: none (docs only)
+Gate:     scripts/check.sh PASS before and after (baseline at 273957a)
+Approved: Proposal 6, approved by John on 2026-10-22
+
 ## 6. Cross platform support: LF line endings, OS ignores, CI on Linux/macOS/Windows — 100644
 What:     .gitattributes, .github/workflows/ci.yml, docs/DESIGN.md
 Why:      Good practice to include design decision for future reader. CI/CD        pipelines for os-agnostic systems.
