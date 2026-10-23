@@ -5,7 +5,7 @@ A deterministic, turn-based fleet simulator written in Rust. It reads one JSON c
 Implements the base specification, Follow-on 1 (cargo and dock operations), and Follow-on 2 (historical state queries).
 
 ## Authors
-- John Lee - [GitHub](https://github.com/michaeljohndan) - 2003jjl@gmail.com
+- John Lee - [GitHub](https://github.com/michaeljohndan) - [LinkedIn](https://www.linkedin.com/in/johnjaemin/) - 2003jjl@gmail.com
 
 ## Quick start
 
