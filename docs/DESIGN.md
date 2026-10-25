@@ -354,7 +354,7 @@ Notable things in the implementation:
     - `undock` and the cargo commands need it to be Docked.
     So the only mix allowed is `undock` plus cargo commands (D6/D7). Both change different fields of planned, so their order doesn't matter.
 
-#### Lifecycle of one command. Each step's italic label names the design pattern it uses.
+#### Lifecycle of one command. Each step's italic label names the design pattern it uses
 
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 50, "rankSpacing": 70, "curve": "basis", "padding": 15}}}%%
