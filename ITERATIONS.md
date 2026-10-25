@@ -16,6 +16,19 @@ Template:
 - **Approved:** <yes, by John on YYYY-MM-DD>
 ```
 
+## 14. Design doc updated for Proposal 13 — `9393a66`
+
+- **What:** `docs/DESIGN.md` (header commit, 4.1 `lib.rs`/`protocol.rs` rows, labelled acyclic
+  dependency diagram, 4.2 steps 2 and 7, new command-lifecycle diagram with pattern labels,
+  section 6 `handle_line` row, section 7 unit-test bullet)
+- **Why:** Proposal 13 moved `handle_line` to `lib.rs` and removed both module cycles; the design
+  doc described the old layout
+- **Fixes:** stale references to `render_view`, `protocol.rs handle_line` and the cycle note;
+  overlapping diagram labels (both diagrams checked with mermaid-cli)
+- **Behavior:** none (docs only; written by John)
+- **Gate:** `scripts/check.sh` PASS (65 tests; baseline 65 at `f7ce9aa`)
+- **Approved:** written and committed by John on 2026-10-25
+
 ## 13. Decouple protocol from sim, and rules from protocol — `5b2234b`
 
 - **What:** `src/lib.rs` (`handle_line` moved here), `src/protocol.rs` (`parse_command`,
