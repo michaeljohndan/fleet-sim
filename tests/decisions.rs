@@ -611,3 +611,154 @@ fn d18_every_path_to_the_same_state_costs_the_same() {
         json!([{"destination":1,"quantity":1}])
     );
 }
+
+// ---------------------------------- decision coverage: D5 D7 D9 D10 D15 D17
+
+#[test]
+fn d5_dock_after_committed_undock_redocks() {
+    let mut h = docked("[2,2,2]", "[]");
+    h.cmd("undock", &vid("v1"));
+    h.tick();
+    assert_eq!(
+        h.cmd("dock", &vid("v1"))["vessels"]["v1"]["state"],
+        "docked"
+    );
+    assert_eq!(h.tick()["vessels"]["v1"]["state"], "docked");
+}
+
+#[test]
+fn d7_unload_and_swap_after_pending_undock_are_allowed() {
+    let mut a = carrying_dest_two();
+    a.cmd("undock", &vid("v1"));
+    assert_eq!(
+        a.cmd("unload", &dest("v1", 2))["vessels"]["v1"],
+        json!({"state":"idle","location":0,"cargo":[]})
+    );
+    let mut b = carrying_dest_two();
+    b.cmd("undock", &vid("v1"));
+    b.cmd(
+        "swap",
+        r#"{"vessel_id":"v1","load_destination":1,"unload_destination":2}"#,
+    );
+    assert_eq!(
+        b.tick()["vessels"]["v1"],
+        json!({"state":"idle","location":0,"cargo":[{"destination":1,"quantity":1}]})
+    );
+}
+
+#[test]
+fn d9_transfer_between_vessels_costs_each_vessel() {
+    // Netting is per vessel, not per dock: a v1 -> v2 hand-off leaves the dock's
+    // inventory unchanged but still costs 1 + 1, so a third operation is over.
+    let mut h = Harness::cargo(
+        "[2,2,2]",
+        r#"[{"location":0,"destination":1,"quantity":2}]"#,
+    );
+    h.cmd("dock", &vid("v1"));
+    h.cmd("dock", &vid("v2"));
+    h.tick();
+    h.cmd("load", &dest("v1", 1));
+    h.tick();
+    h.cmd("unload", &dest("v1", 1));
+    h.cmd("load", &dest("v2", 1));
+    assert_eq!(
+        h.cmd_err("load", &dest("v2", 1)),
+        "transfer of 3 operations exceeds dock throughput of 2 at location 0"
+    );
+}
+
+#[test]
+fn d10_no_implicit_undo_validity_ignores_pending_commands() {
+    // Committed idle: undock is rejected the same way with or without a pending dock.
+    let mut alone = Harness::cargo("[2,2,2]", "[]");
+    let mut after_dock = Harness::cargo("[2,2,2]", "[]");
+    after_dock.cmd("dock", &vid("v1"));
+    assert_eq!(
+        after_dock.cmd_err("undock", &vid("v1")),
+        alone.cmd_err("undock", &vid("v1"))
+    );
+    // The pending dock was not undone.
+    assert_eq!(after_dock.tick()["vessels"]["v1"]["state"], "docked");
+
+    // Committed docked: dock and set_destination are rejected the same way with or
+    // without a pending undock.
+    let mut alone = docked("[2,2,2]", "[]");
+    let mut after_undock = docked("[2,2,2]", "[]");
+    after_undock.cmd("undock", &vid("v1"));
+    for (name, params) in [("dock", vid("v1")), ("set_destination", dest("v1", 1))] {
+        assert_eq!(
+            after_undock.cmd_err(name, &params),
+            alone.cmd_err(name, &params),
+            "{name}"
+        );
+    }
+    // The pending undock was not undone.
+    assert_eq!(after_undock.tick()["vessels"]["v1"]["state"], "idle");
+}
+
+#[test]
+fn d15_init_manifest_needs_dock_throughput() {
+    let mut h = Harness::new();
+    assert_eq!(
+        h.cmd_err(
+            "init",
+            r#"{"travel_times":[[0,1],[1,0]],"vessels":[],"cargo_manifest":[{"location":0,"destination":1,"quantity":1}]}"#
+        ),
+        "cargo operations require dock_throughput at init"
+    );
+    // D12: a failed init leaves the world uninitialized, so init can be retried.
+    assert!(h.sim.world().is_none());
+    h.cmd("init", r#"{"travel_times":[[0,1],[1,0]],"vessels":[]}"#);
+}
+
+#[test]
+fn d15_every_cargo_command_is_rejected_in_base_mode() {
+    let mut h = Harness::base();
+    let swap = r#"{"vessel_id":"v1","load_destination":1,"unload_destination":2}"#;
+    for (name, params) in [
+        ("undock", vid("v1")),
+        ("load", dest("v1", 1)),
+        ("unload", dest("v1", 1)),
+        ("swap", swap.to_string()),
+    ] {
+        assert_eq!(
+            h.cmd_err(name, &params),
+            "cargo operations require dock_throughput at init",
+            "{name}"
+        );
+    }
+    let s = h.tick();
+    assert!(s.get("cargo").is_none());
+    assert!(s["vessels"]["v1"].get("cargo").is_none());
+}
+
+#[test]
+fn d17_load_then_unload_moves_dock_entry_to_end() {
+    // TWO_UNITS puts dest 2 before dest 1 on dock 0.
+    let mut h = docked("[2,2,2]", TWO_UNITS);
+    h.cmd("load", &dest("v1", 2)); // dest-2 entry reaches 0 and is removed
+    let s = h.cmd("unload", &dest("v1", 2)); // re-added at the end
+    let moved = json!([
+        {"location":0,"destination":1,"quantity":1},
+        {"location":0,"destination":2,"quantity":1}
+    ]);
+    assert_eq!(s["cargo"], moved);
+    assert_eq!(s["vessels"]["v1"]["cargo"], json!([]));
+    // Only the order changed, and the new order is what commits.
+    assert_eq!(h.tick()["cargo"], moved);
+}
+
+#[test]
+fn d17_unload_then_load_moves_vessel_entry_to_end() {
+    let mut h = docked("[2,2,2]", TWO_UNITS);
+    h.cmd("load", &dest("v1", 2));
+    h.cmd("load", &dest("v1", 1));
+    h.tick(); // v1 carries [dest 2, dest 1]
+    h.cmd("unload", &dest("v1", 2));
+    let s = h.cmd("load", &dest("v1", 2));
+    assert_eq!(
+        s["vessels"]["v1"]["cargo"],
+        json!([{"destination":1,"quantity":1},{"destination":2,"quantity":1}])
+    );
+    assert_eq!(s["cargo"], json!([]));
+}

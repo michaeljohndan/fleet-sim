@@ -97,3 +97,101 @@ impl fmt::Display for SimError {
 }
 
 impl std::error::Error for SimError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// No wildcard arm: a new variant fails to compile until it gets a pinned message below.
+    fn has_pinned_message(e: &SimError) -> bool {
+        match e {
+            SimError::InvalidCommand(_)
+            | SimError::NotInitialized
+            | SimError::AlreadyInitialized
+            | SimError::InvalidInit(_)
+            | SimError::InvalidManifest(_)
+            | SimError::CargoNotEnabled
+            | SimError::UnknownVessel(_)
+            | SimError::DestinationOutOfRange { .. }
+            | SimError::NotIdle(_)
+            | SimError::NotDocked(_)
+            | SimError::NoDockCargo { .. }
+            | SimError::NoVesselCargo { .. }
+            | SimError::ThroughputExceeded { .. }
+            | SimError::FutureTick { .. }
+            | SimError::NegativeTick(_) => true,
+        }
+    }
+
+    /// D16: every message lives in `Display`, spec wording is exact, and the rest
+    /// follow the same lowercase "subject + problem" style with no trailing period.
+    #[test]
+    fn d16_every_error_message_is_pinned() {
+        let cases = [
+            (
+                SimError::InvalidCommand("expected value".into()),
+                "invalid command: expected value",
+            ),
+            (SimError::NotInitialized, "simulation not initialized"),
+            (
+                SimError::AlreadyInitialized,
+                "simulation already initialized",
+            ),
+            (SimError::InvalidInit("bad".into()), "invalid init: bad"),
+            (
+                SimError::InvalidManifest("bad".into()),
+                "invalid cargo_manifest: bad",
+            ),
+            (
+                SimError::CargoNotEnabled,
+                "cargo operations require dock_throughput at init",
+            ),
+            (SimError::UnknownVessel("v9".into()), "unknown vessel v9"),
+            (
+                SimError::DestinationOutOfRange {
+                    destination: 5,
+                    locations: 3,
+                },
+                "destination 5 is out of range (0-2)",
+            ),
+            (SimError::NotIdle("v1".into()), "vessel v1 is not idle"),
+            (SimError::NotDocked("v1".into()), "vessel v1 is not docked"),
+            (
+                SimError::NoDockCargo {
+                    location: 0,
+                    destination: 1,
+                },
+                "dock 0 has no cargo for destination 1",
+            ),
+            (
+                SimError::NoVesselCargo {
+                    vessel: "v1".into(),
+                    destination: 2,
+                },
+                "vessel v1 has no cargo for destination 2",
+            ),
+            (
+                SimError::ThroughputExceeded {
+                    operations: 3,
+                    limit: 2,
+                    location: 0,
+                },
+                "transfer of 3 operations exceeds dock throughput of 2 at location 0",
+            ),
+            (
+                SimError::FutureTick {
+                    tick: 99,
+                    current: 13,
+                },
+                "tick 99 is in the future (current tick: 13)",
+            ),
+            (SimError::NegativeTick(-1), "tick -1 is negative"),
+        ];
+        for (err, text) in cases {
+            assert!(has_pinned_message(&err));
+            assert_eq!(err.to_string(), text);
+            assert!(text.starts_with(|c: char| c.is_lowercase()), "{text}");
+            assert!(!text.ends_with('.'), "{text}");
+        }
+    }
+}
