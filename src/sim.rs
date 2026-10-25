@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 use crate::error::SimError;
 use crate::history::{HistoryStore, SnapshotHistory};
-use crate::protocol::{Command, InitParams};
+use crate::protocol::{Command, InitParams, ManifestEntry};
 use crate::rules::{self, Manifest};
 use crate::state::{CargoList, DockInventory, Loc, Status, Topology, Vessel, WorldState};
 
@@ -186,7 +186,7 @@ impl World {
         // D15: base mode rejects any cargo_manifest field, even an empty one.
         let manifest = match &p.cargo_manifest {
             Some(_) if throughput.is_none() => return Err(SimError::CargoNotEnabled),
-            Some(entries) => rules::check_manifest(entries, n)?,
+            Some(entries) => rules::check_manifest(raw_manifest(entries), n)?,
             None => Vec::new(),
         };
 
@@ -236,7 +236,9 @@ impl World {
                 // D15: base mode rejects any cargo_manifest field, even an empty one.
                 let manifest = match &p.cargo_manifest {
                     Some(_) if !self.cargo_mode() => return Err(SimError::CargoNotEnabled),
-                    Some(entries) => rules::check_manifest(entries, self.locations())?,
+                    Some(entries) => {
+                        rules::check_manifest(raw_manifest(entries), self.locations())?
+                    }
                     None => Vec::new(),
                 };
                 Ok(Effect::Tick { manifest })
@@ -620,6 +622,14 @@ impl World {
         }
         Ok(())
     }
+}
+
+/// Wire entries as plain (location, destination, quantity) values, so `rules`
+/// never depends on a protocol type.
+fn raw_manifest(entries: &[ManifestEntry]) -> impl Iterator<Item = (i64, i64, i64)> + '_ {
+    entries
+        .iter()
+        .map(|e| (e.location, e.destination, e.quantity))
 }
 
 fn add_manifest(state: &mut WorldState, manifest: &Manifest) {

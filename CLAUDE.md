@@ -83,7 +83,9 @@ Risk:           <what could break; how the gate would catch it>
 ## Architecture (one job per module)
 
 - `src/main.rs` — I/O loop only: read line, `handle_line`, write, flush. Single thread.
-- `src/protocol.rs` — serde `Command` enum (adjacently tagged) + output views with fixed key order.
+- `src/lib.rs` — `handle_line`: parse → `execute` → render. The only place protocol and sim meet.
+- `src/protocol.rs` — parse and format only (never calls the engine): serde `Command` enum
+  (adjacently tagged), `parse_command`, `render_state` / `render_error` with fixed key order.
 - `src/sim.rs` — `Simulation` (uninitialized/running) and `World`. `execute` = `validate`
   (pure, returns `Effect` or `SimError`) then `apply` (infallible). Also `check_invariants`.
 - `src/rules.rs` — pure helpers: `vessel_operations` (D8), `dock_operations`, range checks.
