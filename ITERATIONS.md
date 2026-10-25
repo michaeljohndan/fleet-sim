@@ -16,6 +16,19 @@ Template:
 - **Approved:** <yes, by John on YYYY-MM-DD>
 ```
 
+## 13. Decouple protocol from sim, and rules from protocol — `5b2234b`
+
+- **What:** `src/lib.rs` (`handle_line` moved here), `src/protocol.rs` (`parse_command`,
+  `render_state` replaces `render_view`, no `sim` import, unit test `render_state_needs_no_world`),
+  `src/rules.rs` (`check_manifest` takes raw tuples), `src/sim.rs` (`raw_manifest`), `CLAUDE.md`,
+  `README.md`
+- **Why:** John's review of the DESIGN 4.1 dependency list; protocol should be a pure wire layer
+- **Fixes:** both module cycles (`protocol` ↔ `sim`, `rules` → `protocol`); layering is now acyclic
+- **Behavior:** none (every response byte-identical; public paths `fleet_sim::handle_line`,
+  `render_error`, `Simulation` unchanged)
+- **Gate:** `scripts/check.sh` PASS (65 tests; baseline 64 at `029b8a1`)
+- **Approved:** Proposal 13, approved by John on 2026-10-25
+
 ## 12. Iteration log: bulleted entries with code formatting — `dd49214`
 
 - **What:** `ITERATIONS.md` (entries 1–11 and the template)
