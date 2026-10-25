@@ -183,10 +183,9 @@ impl World {
             });
         }
 
+        // D15: base mode rejects any cargo_manifest field, even an empty one.
         let manifest = match &p.cargo_manifest {
-            Some(entries) if !entries.is_empty() && throughput.is_none() => {
-                return Err(SimError::CargoNotEnabled)
-            }
+            Some(_) if throughput.is_none() => return Err(SimError::CargoNotEnabled),
             Some(entries) => rules::check_manifest(entries, n)?,
             None => Vec::new(),
         };
@@ -234,10 +233,9 @@ impl World {
     fn validate(&self, cmd: &Command) -> Result<Effect, SimError> {
         match cmd {
             Command::Tick(p) => {
+                // D15: base mode rejects any cargo_manifest field, even an empty one.
                 let manifest = match &p.cargo_manifest {
-                    Some(entries) if !entries.is_empty() && !self.cargo_mode() => {
-                        return Err(SimError::CargoNotEnabled)
-                    }
+                    Some(_) if !self.cargo_mode() => return Err(SimError::CargoNotEnabled),
                     Some(entries) => rules::check_manifest(entries, self.locations())?,
                     None => Vec::new(),
                 };

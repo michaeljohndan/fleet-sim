@@ -712,6 +712,34 @@ fn d15_init_manifest_needs_dock_throughput() {
 }
 
 #[test]
+fn d15_base_mode_rejects_any_cargo_manifest_even_empty() {
+    let mut h = Harness::new();
+    assert_eq!(
+        h.cmd_err(
+            "init",
+            r#"{"travel_times":[[0,1],[1,0]],"vessels":[],"cargo_manifest":[]}"#
+        ),
+        "cargo operations require dock_throughput at init"
+    );
+    assert!(h.sim.world().is_none());
+
+    let mut h = Harness::base();
+    assert_eq!(
+        h.cmd_err("tick", r#"{"cargo_manifest":[]}"#),
+        "cargo operations require dock_throughput at init"
+    );
+    assert_eq!(h.state()["tick"], 0);
+
+    // `null` counts as absent, so base mode accepts it on tick and on init.
+    assert_eq!(h.cmd("tick", r#"{"cargo_manifest":null}"#)["tick"], 1);
+    let mut h = Harness::new();
+    h.cmd(
+        "init",
+        r#"{"travel_times":[[0,1],[1,0]],"vessels":[],"cargo_manifest":null}"#,
+    );
+}
+
+#[test]
 fn d15_every_cargo_command_is_rejected_in_base_mode() {
     let mut h = Harness::base();
     let swap = r#"{"vessel_id":"v1","load_destination":1,"unload_destination":2}"#;
