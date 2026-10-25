@@ -15,6 +15,17 @@ Gate:     scripts/check.sh PASS (<test count> tests) | FAIL (<what>)
 Approved: <yes, by John on YYYY-MM-DD>
 ```
 
+## 9. Dedicated decision tests: D10, D16, D17 + gaps in D5, D7, D9, D15 — 8c48142
+What:     tests/decisions.rs (8 tests), src/error.rs (new test module: d16_every_error_message_is_pinned)
+Why:      D10/D16 had only indirect coverage; D17 was asserted nowhere; D5, D7, D9, D15 had untested
+          parts of their decision text (DESIGN 3.5)
+Fixes:    regressions in D17 ordering, message wording, implicit undo, or per-vessel netting would
+          have passed the gate
+Behavior: none (test-only; tests pin existing behavior)
+Gate:     scripts/check.sh PASS (63 tests; baseline 54 at 3585ffe). Mutation check: 7 targeted rule
+          breaks in a scratch copy, each caught by its new test (D5/D7 not mutation-checked)
+Approved: Proposal 11, approved by John on 2026-10-24
+
 ## 8. Correct iteration 6 log entry — 661c396
 What:     ITERATIONS.md (entry 6 heading and Gate line)
 Why:      scripts/bisect.sh relies on the log's hashes to find the last green commit
