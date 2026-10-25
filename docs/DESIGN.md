@@ -1,16 +1,3 @@
-<!--
-DESIGN DOC TEMPLATE: Fleet Simulation Engine
-Structure adapted from MIL-STD-498 Software Design Description (DI-IPSC-81435),
-trimmed for a take-home; decisions use the Architecture Decision Record (ADR) format.
-
-HOW TO USE
-- Save as docs/DESIGN.md in the repo. Every sentence must be your own writing: the spec
-  forbids AI for the design doc. These hidden comments are questions to answer; delete
-  each one once its section is written.
-- Target length: about 5-8 pages. Short, specific sentences beat long ones.
-- Use the spec's words for spec facts and your own words for everything else.
--->
-
 # Fleet Simulation Engine: Software Design Description
 
 |                  |            |
@@ -579,6 +566,9 @@ Every item below was found by measurement (section 4.4) or follows from a decisi
 ### 9.1 Open questions
 
 - What kind of applications will a project like this be used at Saronic?
+- Should the follow-ons be in the submission?
+- Does the grader compare output byte for byte (including array order)?
+- Is auto-detecting cargo mode (D15) OK?
 
 ### 9.2 Glossary
 
