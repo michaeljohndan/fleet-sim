@@ -16,7 +16,7 @@ HOW TO USE
 |                  |            |
 | ---------------- | ---------- |
 | Author           | John Lee   |
-| Version / commit | 1.0 (code at `027bc54`) |
+| Version / commit | 1.0 (code at `5b2234b`) |
 | Date             | 10/25/2026 |
 | Status           | Submitted      |
 
@@ -283,8 +283,8 @@ The simulation's determinism requires no wall-clock time, no unseeded randomness
 | Module | Responsibility | Why separate |
 | --------- | -------------- | ------------ |
 | `main.rs` | I/O loop, reads the lines, writes, and flushes | Only file that touches the stdin/stdout. Single threaded on purpose and flushes out command after every response. |
-| `lib.rs` | Crate root that declares modules and re-exports the public API | Lets tests drive the engine without the binary |
-| `protocol.rs` | JSON gets parsed into Commands that alter the state. The changed world state then outputs another JSON with fixed key order. | The internal model and JSON shape can change independently. |
+| `lib.rs` | Crate root that declares modules and re-exports the public API. Owns `handle_line`, which parses, executes and renders, and is the only place where protocol and sim meet | Lets tests drive the engine without the binary |
+| `protocol.rs` | Parses JSON into Commands and formats the world state back into JSON with a fixed key order. It never calls the engine and depends only on `state`, `error`, and serde. | The internal model and JSON shape can change independently, and output can be tested without a running world. |
 | `sim.rs` | The sim engine, includes `validate`, `apply`, and `advance` for ticks. | Holds every ordering decision. The validate/apply split is what makes rejections atomic. |
 | `rules.rs` | Pure rule helpers. No I/O, no mutation. | Unit testable with plain values. The throughput rule lives in one place. |
 | `state.rs` | Plain data model. | No rules, no I/O. Holds the topology of the world state, so travel time data can be isolated here. |
@@ -294,43 +294,51 @@ The simulation's determinism requires no wall-clock time, no unseeded randomness
 Dependencies for the architecture.
 
 ```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 80, "rankSpacing": 110, "curve": "basis", "padding": 20}}}%%
 flowchart TD
-    main["main.rs"] --> lib["lib<br/>fleet_sim::handle_line<br/>render_error<br/>Simulation"]
+    main["main.rs<br/>(I/O loop)"]
+    lib["lib.rs<br/>handle_line:<br/>parse → execute → render"]
+    sim["sim.rs<br/>(engine)"]
+    history["history.rs"]
+    rules["rules.rs<br/>(pure helpers)"]
+    protocol["protocol.rs<br/>(parse / format)"]
+    state["state.rs<br/>(no dependencies)"]
+    error["error.rs<br/>(std only)"]
+    serde[("serde /<br/>serde_json")]
 
-    protocol --> sim
-    protocol --> state
-    protocol --> error
-    protocol --> serde[("serde")]
+    main -->|"handle_line,<br/>render_error"| lib
+    lib -->|"execute,<br/>state_for"| sim
+    lib -->|"parse_command,<br/>render_state"| protocol
 
-    sim --> protocol
-    sim --> rules
-    sim --> state
-    sim --> history
+    sim -->|"record / get"| history
+    sim -->|"checks, D8 ops"| rules
+    sim -->|"Command types"| protocol
+
+    history -->|"snapshots"| state
+    sim -->|"world data"| state
+    rules -->|"cargo, status"| state
+    protocol -->|"read for output"| state
+
     sim --> error
-
-    rules -->|"ManifestEntry only"| protocol
-    rules --> state
     rules --> error
+    protocol --> error
 
-    history --> state
-
-    error["error<br/>(std only)"]
-    state["state<br/>(no dependencies)"]
+    protocol -->|"(de)serialize"| serde
 ```
 
-Later on, might move `Command/InitParams` types into their own module, or move rendering out of `protocol`. Either change would remove both cycles.
+Unlabelled arrows into `error` mean the module returns `SimError`.
 
 ### 4.2 Concept of execution
 
 An example of a command is as follows:
 
 1. `main.rs` reads the line and handles invalid UTF-8.
-2. `protocol.rs` trims the lines, parses and deserializes it into the `Command` structure via `handle_line`. Unknown commands, extra fields, and wrong types fail here with `InvalidCommand`.
+2. `handle_line` in `lib.rs` trims the line, and `protocol::parse_command` deserializes it into the `Command` structure. Unknown commands, extra fields, and wrong types fail here with `InvalidCommand`.
 3. `sim.rs` sees an existing world and forwards the command via `Simulation::execute`. `World::execute` answers `Init`, `GetState`, and `GetStateAt` early without calling `validate`. A `Load` then goes into `validate`.
 4. `validate` runs checks in order. Dock commands get checked against the committed state, and cargo commands are valid only if the vessel is committed-docked. Only the inventory and throughput checks read planned state. `dock_operations` sums over every vessel whose committed status is docked at that dock.
 5. Because of the rigorous validation in the previous step, `apply` cannot fail. The planned state is updated.
 6. Because time has not passed yet via a `tick`, the raw `Command` is pushed onto `pending`, and the function returns `View::Planned`.
-7. `render_view` calls `state_for(Planned)` which borrows the planned state. `StateView` writes `tick`, then `vessels` in `names` order. This is init order, not HashMap order. Then, it writes the cargo.
+7. `handle_line` calls `state_for(Planned)`, which borrows the planned state, then passes the vessel names, that state, and the cargo mode to `protocol::render_state`. `StateView` writes `tick`, then `vessels` in `names` order. This is init order, not HashMap order. Then, it writes the cargo.
 8. `main` writes a line and a newline, then flushes.
 
 A tick's trace is as follows:
@@ -344,7 +352,44 @@ Notable things in the implementation:
 2. Status and cargo commands can't be mixed in one tick.
     - `dock` and `set_destination` need the committed state to be Idle.
     - `undock` and the cargo commands need it to be Docked.
-So the only mix allowed is `undock` plus cargo commands (D6/D7). Both change different fields of planned, so their order doesn't matter.
+    So the only mix allowed is `undock` plus cargo commands (D6/D7). Both change different fields of planned, so their order doesn't matter.
+
+#### Lifecycle of one command. Each step's italic label names the design pattern it uses.
+
+```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 50, "rankSpacing": 70, "curve": "basis", "padding": 15}}}%%
+flowchart LR
+    subgraph shell["Imperative shell (main.rs)"]
+        IN["stdin line"]
+        OUT["stdout line"]
+    end
+    subgraph core["Functional core (lib.rs handle_line → protocol, sim)"]
+        P["parse → Command<br/><i>Command pattern</i>"]
+        Q{"query?"}
+        V["validate: pure, reads COMMITTED<br/><i>validate / apply split</i>"]
+        A["apply: cannot fail, writes PLANNED<br/><i>double buffer</i>"]
+        L[("pending log")]
+        T["tick: planned → committed"]
+        H[("HistoryStore<br/><i>snapshot + strategy</i>")]
+        R["render views, fixed key order<br/><i>serialization views</i>"]
+        E["error line"]
+    end
+    IN --> P
+    P -->|malformed| E
+    P --> Q
+    Q -->|"get_state"| R
+    Q -->|"get_state_at(T)"| H
+    Q -->|"mutating command"| V
+    V -->|"SimError, nothing changed"| E
+    V -->|Effect| A
+    A -->|"non-tick commands"| L
+    A -->|"tick"| T
+    T -->|record| H
+    H -->|"committed at T"| R
+    A -->|"planned"| R
+    R --> OUT
+    E --> OUT
+```
 
 ### 4.3 Interface design
 
@@ -482,7 +527,7 @@ This table shows the same scenario if the user used `swap` for operations 1 and 
 | set_destination: arrival tick, override before tick | `sim.rs` `validate` (SetDestination → `arrives_at_tick = committed.tick + travel_time`), `apply` (SetStatus) | `set_destination_sets_arrival_and_last_command_wins`, `dock_and_set_destination_override_each_other`, `base_spec_walkthrough`; see D1 |
 | Arriving vessel reports idle at its arrival tick | `sim.rs` `World::advance` | `arrival_reports_idle_and_vessel_can_be_commanded_same_tick`, `base_spec_walkthrough` |
 | get_state returns planned state | `sim.rs` `World::execute` → `View::Planned`, `state_for` | `get_state_at_current_tick_shows_committed_not_pending`, both golden walkthroughs |
-| One output line per command, in order | `main.rs` I/O loop, `protocol.rs` `handle_line` | `binary_reproduces_both_spec_walkthroughs`, `blank_lines_are_skipped_and_crlf_is_accepted`, `invalid_utf8_gets_an_error_line_and_the_loop_continues`, `final_line_without_newline_is_processed`; see D11 |
+| One output line per command, in order | `main.rs` I/O loop, `lib.rs` `handle_line` | `binary_reproduces_both_spec_walkthroughs`, `blank_lines_are_skipped_and_crlf_is_accepted`, `invalid_utf8_gets_an_error_line_and_the_loop_continues`, `final_line_without_newline_is_processed`; see D11 |
 | dock / undock rules and overrides | `sim.rs` `validate` (Dock, Undock) | `dock_and_set_destination_override_each_other`; see D1–D5 |
 | load / unload / swap validity | `sim.rs` `validate` (Load, Unload, Swap), `require_dock_cargo`, `require_vessel_cargo` | `cargo_commands_need_committed_docked`, `missing_cargo_is_rejected`, `swap_costs_one_and_reorders_like_the_spec`; see D6, D7, D9 |
 | Delivery at destination removes cargo | `sim.rs` `apply` → `unload_into_dock` | `unload_at_destination_delivers_and_removes_cargo`, `delivery_costs_one`, `cargo_and_history_spec_walkthrough` |
@@ -495,7 +540,7 @@ This table shows the same scenario if the user used `swap` for operations 1 and 
 
 ## 7. Verification
 
-- **Unit tests** (`rules.rs`, `state.rs`, `error.rs`): pure helpers in isolation, including throughput counting (D8) and cargo-list ordering (D14).
+- **Unit tests** (`rules.rs`, `state.rs`, `error.rs`, `protocol.rs`): pure helpers in isolation, including throughput counting (D8), cargo-list ordering (D14), and rendering output from a hand-built state with no `World` (`render_state_needs_no_world`).
 - **Decision tests** (`tests/decisions.rs`): one or more tests per decision D1–D18 and per spec rule. The shared harness checks every invariant after every command, and checks that every rejected command left the state unchanged. Seven deliberate rule breaks were each caught by their intended test (iteration 9).
 - **Golden tests** (`tests/golden.rs`): both spec walkthroughs, compared byte for byte, so any change to output values, key order, or array order fails.
 - **Seeded random tests** (`tests/simulation.rs`): 300 seeds × 400 random commands, valid and invalid, checking invariants after every command (`World::check_invariants`), atomic rejections, history that never changes, and byte-identical output for the same seed. A failing seed reproduces with `FLEET_SIM_SEED=<seed>`. The suite was shown to catch a deliberately planted throughput bug before that bug was reverted.
