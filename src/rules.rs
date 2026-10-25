@@ -66,35 +66,33 @@ pub fn location(value: i64, locations: usize) -> Option<Loc> {
 pub type Manifest = Vec<(Loc, Loc, u64)>;
 
 /// Validates a whole manifest before any of it is applied (all or nothing).
+/// Entries are raw (location, destination, quantity) values from the wire.
 pub fn check_manifest(
-    entries: &[crate::protocol::ManifestEntry],
+    entries: impl IntoIterator<Item = (i64, i64, i64)>,
     locations: usize,
 ) -> Result<Manifest, SimError> {
     entries
-        .iter()
+        .into_iter()
         .enumerate()
-        .map(|(i, e)| {
-            let loc = location(e.location, locations).ok_or_else(|| {
+        .map(|(i, (raw_loc, raw_dest, raw_qty))| {
+            let loc = location(raw_loc, locations).ok_or_else(|| {
                 SimError::InvalidManifest(format!(
-                    "entry {i} location {} is out of range (0-{})",
-                    e.location,
+                    "entry {i} location {raw_loc} is out of range (0-{})",
                     locations - 1
                 ))
             })?;
-            let dest = location(e.destination, locations).ok_or_else(|| {
+            let dest = location(raw_dest, locations).ok_or_else(|| {
                 SimError::InvalidManifest(format!(
-                    "entry {i} destination {} is out of range (0-{})",
-                    e.destination,
+                    "entry {i} destination {raw_dest} is out of range (0-{})",
                     locations - 1
                 ))
             })?;
-            let qty = u64::try_from(e.quantity)
+            let qty = u64::try_from(raw_qty)
                 .ok()
                 .filter(|q| *q > 0)
                 .ok_or_else(|| {
                     SimError::InvalidManifest(format!(
-                        "entry {i} quantity {} must be a positive integer",
-                        e.quantity
+                        "entry {i} quantity {raw_qty} must be a positive integer"
                     ))
                 })?;
             Ok((loc, dest, qty))

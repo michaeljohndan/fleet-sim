@@ -111,7 +111,8 @@ cargo run --release --example bench -- <vessels> <ticks>
 ```text
 src/
   main.rs        I/O loop: one line in, one line out
-  protocol.rs    JSON commands and output format
+  lib.rs         handle_line: parse, execute, render
+  protocol.rs    JSON parsing and output format (no engine calls)
   sim.rs         engine: validate each command, then apply it
   rules.rs       pure rule helpers (throughput counting, range checks)
   state.rs       data model: vessels, cargo, docks, map

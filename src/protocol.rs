@@ -3,12 +3,14 @@
 //! Input parses straight into a typed `Command` (serde, adjacently tagged).
 //! Output is written from lightweight views that borrow the state, in a fixed key
 //! order, so the internal model and the JSON shape can change independently.
+//!
+//! Parse and format only: this module never calls the engine. `handle_line` in
+//! `lib.rs` connects the two.
 
 use serde::ser::{SerializeMap, SerializeSeq};
 use serde::{Deserialize, Serialize, Serializer};
 
 use crate::error::SimError;
-use crate::sim::{Simulation, View, World};
 use crate::state::{Status, Vessel, WorldState};
 
 /// One input line. Unknown commands, unknown or missing parameters, and wrong
@@ -85,34 +87,20 @@ pub struct ManifestEntry {
     pub quantity: i64,
 }
 
-/// Handles one raw input line. Returns `None` for a blank line (not a command),
-/// otherwise exactly one response line without the trailing newline.
-pub fn handle_line(sim: &mut Simulation, line: &str) -> Option<String> {
-    let line = line.trim();
-    if line.is_empty() {
-        return None;
-    }
-    let result = serde_json::from_str::<Command>(line)
-        .map_err(|e| SimError::InvalidCommand(e.to_string()))
-        .and_then(|cmd| sim.execute(cmd));
-    Some(match result {
-        Ok(view) => {
-            let world = sim
-                .world()
-                .expect("a successful command implies a running world");
-            render_view(world, view)
-        }
-        Err(e) => render_error(&e),
-    })
+/// Parses one trimmed, non-blank input line into a `Command` (D11).
+pub fn parse_command(line: &str) -> Result<Command, SimError> {
+    serde_json::from_str::<Command>(line).map_err(|e| SimError::InvalidCommand(e.to_string()))
 }
 
-pub fn render_view(world: &World, view: View) -> String {
-    let state = world.state_for(view);
+/// An `ok` response line for `state`. `names` are the vessel ids in init order
+/// (D14); `cargo_mode` decides whether cargo fields are printed (D15).
+pub fn render_state(names: &[String], state: &WorldState, cargo_mode: bool) -> String {
     to_line(&Response {
         status: "ok",
         payload: StateView {
-            world,
-            state: &state,
+            names,
+            state,
+            cargo_mode,
         },
     })
 }
@@ -143,24 +131,24 @@ struct ErrorPayload {
 
 /// `{"tick":..,"vessels":{..},"cargo":[..]}`; `cargo` only in cargo mode (D15).
 struct StateView<'a> {
-    world: &'a World,
+    names: &'a [String],
     state: &'a WorldState,
+    cargo_mode: bool,
 }
 
 impl Serialize for StateView<'_> {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        let cargo_mode = self.world.cargo_mode();
         let mut map = s.serialize_map(None)?;
         map.serialize_entry("tick", &self.state.tick)?;
         map.serialize_entry(
             "vessels",
             &VesselsView {
-                names: self.world.vessel_names(),
+                names: self.names,
                 vessels: &self.state.vessels,
-                cargo_mode,
+                cargo_mode: self.cargo_mode,
             },
         )?;
-        if cargo_mode {
+        if self.cargo_mode {
             map.serialize_entry("cargo", &DocksView(self.state))?;
         }
         map.end()
@@ -265,5 +253,51 @@ impl Serialize for DocksView<'_> {
             })?;
         }
         seq.end()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::{CargoList, DockInventory};
+
+    /// A hand-built state renders without a `World`: protocol needs only plain data.
+    /// Raw lines are compared because `serde_json::Value` would hide key order.
+    #[test]
+    fn render_state_needs_no_world() {
+        let names = vec!["v2".to_string(), "v10".to_string()];
+        let mut cargo = CargoList::default();
+        cargo.add(2, 1);
+        let mut docks = DockInventory::default();
+        docks.add(1, 0, 3);
+        let state = WorldState {
+            tick: 3,
+            vessels: vec![
+                Vessel {
+                    status: Status::Docked { location: 1 },
+                    cargo,
+                },
+                Vessel {
+                    status: Status::Transit {
+                        from: 0,
+                        to: 2,
+                        arrives_at_tick: 5,
+                    },
+                    cargo: CargoList::default(),
+                },
+            ],
+            docks,
+            manifested: 4,
+            delivered: 0,
+        };
+
+        assert_eq!(
+            render_state(&names, &state, false),
+            r#"{"status":"ok","payload":{"tick":3,"vessels":{"v2":{"state":"docked","location":1},"v10":{"state":"transit","from":0,"to":2,"arrives_at_tick":5}}}}"#
+        );
+        assert_eq!(
+            render_state(&names, &state, true),
+            r#"{"status":"ok","payload":{"tick":3,"vessels":{"v2":{"state":"docked","location":1,"cargo":[{"destination":2,"quantity":1}]},"v10":{"state":"transit","from":0,"to":2,"arrives_at_tick":5,"cargo":[]}},"cargo":[{"location":1,"destination":0,"quantity":3}]}}"#
+        );
     }
 }

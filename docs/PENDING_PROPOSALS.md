@@ -13,7 +13,6 @@ This is an engineering record, not part of the design document (`docs/DESIGN.md`
 | 9b | Batch-indexed manifest application | `state.rs`, `sim.rs` | none | pinned 2026-10-24 |
 | 10A | History: checkpoints + state diffs | `history.rs` (+3 lines in `sim.rs`) | none | pinned 2026-10-24 |
 | 10B | History: checkpoints + command replay | `history.rs`, `sim.rs` | none | pinned 2026-10-24 |
-| 13 | Decouple protocol from sim, and rules from protocol | `lib.rs`, `protocol.rs`, `rules.rs`, `sim.rs` | none | pinned 2026-10-24 |
 
 Measurements quoted below come from one release-build run on a Windows 11 laptop (2026-10-24),
 using a scratch benchmark outside the repo. Re-measure before and after implementing.
@@ -130,6 +129,11 @@ replicas, `cancel`). For history alone, 10A is smaller and safer.
 
 ## Proposal 13: Decouple protocol from sim, and rules from protocol
 
+> **Implemented in `5b2234b` (2026-10-25).** Kept here until John makes the DESIGN.md edits
+> listed at the end of this section. As built, `protocol` also gained `parse_command` (the
+> `serde_json` call that `handle_line` used to make inline), and README's project layout and
+> `lib.rs`'s module doc were updated in the same commit.
+
 ```
 PROPOSAL 13: Decouple protocol from sim, and rules from protocol
 What changes:   src/lib.rs: handle_line moves here from protocol.rs, unchanged in behavior; it
@@ -208,3 +212,4 @@ history  → state                       rules    → state, error
 |---|-------|---------|
 | 11 | Dedicated decision tests (D10, D16, D17 + gaps in D5, D7, D9, D15) | 8c48142, log 670ad7f |
 | 12 | Base mode rejects any cargo_manifest field, even an empty one (D15) | 3b38d12, log 027bc54 |
+| 13 | Decouple protocol from sim, and rules from protocol | 5b2234b |
