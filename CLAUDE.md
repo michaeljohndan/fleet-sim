@@ -76,8 +76,8 @@ Risk:           <what could break; how the gate would catch it>
 | D12 | invalid init → error, world stays uninitialized (init can be retried) |
 | D13 | every rejected command leaves state unchanged (tick with bad manifest doesn't advance) |
 | D14 | output order: vessels in init order, cargo in insertion order (entry removed at 0) |
-| D15 | cargo mode on iff init has `dock_throughput`; base mode prints no cargo fields |
-| D16 | all messages in `SimError`'s `Display`; spec wording reproduced exactly |
+| D15 | cargo mode on iff init has `dock_throughput`; base mode prints no cargo fields. An init that includes cargo in its manifest but no dock_throughput is rejected with the cargo-mode error, and the world stays uninitialized (D12). In base mode, any cargo_manifest field is rejected, even an empty one (`null` counts as absent). |
+| D16 | all messages in `SimError`'s `Display`; spec wording reproduced exactly; start lowercase, no trailing period |
 | D18 | swap with load == unload destination costs 0 (no net change, per D8): every path to the same state costs the same |
 
 ## Architecture (one job per module)
