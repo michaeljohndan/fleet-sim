@@ -15,6 +15,17 @@ Gate:     scripts/check.sh PASS (<test count> tests) | FAIL (<what>)
 Approved: <yes, by John on YYYY-MM-DD>
 ```
 
+## 10. D15: base mode rejects any cargo_manifest field, even an empty one — 3b38d12
+What:     src/sim.rs (World::new and validate Tick-arm guards), tests/decisions.rs
+          (d15_base_mode_rejects_any_cargo_manifest_even_empty)
+Why:      D15 updated by John on 2026-10-24: base mode rejects any mention of cargo; null counts as absent
+Fixes:    DESIGN.md/CLAUDE.md stated the rule but base mode still accepted "cargo_manifest":[]
+Behavior: base-mode init with "cargo_manifest":[] -> error "cargo operations require dock_throughput
+          at init", world stays uninitialized (D12); base-mode tick with [] -> same error, tick does not
+          advance (D13). Unchanged: cargo mode, null manifests, both spec fixtures
+Gate:     scripts/check.sh PASS (64 tests; baseline 63 at 670ad7f). New test failed before the change
+Approved: Proposal 12, approved by John on 2026-10-24
+
 ## 9. Dedicated decision tests: D10, D16, D17 + gaps in D5, D7, D9, D15 — 8c48142
 What:     tests/decisions.rs (8 tests), src/error.rs (new test module: d16_every_error_message_is_pinned)
 Why:      D10/D16 had only indirect coverage; D17 was asserted nowhere; D5, D7, D9, D15 had untested
