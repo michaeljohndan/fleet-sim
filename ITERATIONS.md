@@ -15,6 +15,18 @@ Gate:     scripts/check.sh PASS (<test count> tests) | FAIL (<what>)
 Approved: <yes, by John on YYYY-MM-DD>
 ```
 
+## 11. Design doc, D15/D16 decision text, pending proposals — 98ac8da
+What:     docs/DESIGN.md (all sections written), CLAUDE.md (D15 and D16 decision rows),
+          docs/PENDING_PROPOSALS.md (new: Proposals 9b, 10A, 10B, 13; done table for 11 and 12)
+Why:      submission design doc; D15/D16 wording updated by John on 2026-10-24; pinned proposals
+          kept in the repo instead of only in agent memory
+Fixes:    design doc was an unfinished template; D15/D16 text didn't state the empty-manifest and
+          message-style rules; pending proposals had no record in the repo
+Behavior: none (docs only)
+Gate:     scripts/check.sh PASS (64 tests; baseline 64 at 027bc54)
+Approved: DESIGN.md written and committed by John; CLAUDE.md D15/D16 rows and PENDING_PROPOSALS.md
+          requested by John on 2026-10-24
+
 ## 10. D15: base mode rejects any cargo_manifest field, even an empty one — 3b38d12
 What:     src/sim.rs (World::new and validate Tick-arm guards), tests/decisions.rs
           (d15_base_mode_rejects_any_cargo_manifest_even_empty)
