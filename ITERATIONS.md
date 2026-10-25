@@ -16,6 +16,17 @@ Template:
 - **Approved:** <yes, by John on YYYY-MM-DD>
 ```
 
+## 12. Iteration log: bulleted entries with code formatting — `dd49214`
+
+- **What:** `ITERATIONS.md` (entries 1–11 and the template)
+- **Why:** entries were hard to scan as aligned text, and identifiers weren't distinguishable from prose
+- **Fixes:** each field is now its own bullet; file names, hashes, commands, identifiers and literal
+  inputs are in backticks; blank line after each heading; template code block has a language tag
+- **Behavior:** none (docs only). Wording unchanged, verified word for word after stripping markup;
+  only whitespace in entry 6 and the quote marks around entry 10's error message changed
+- **Gate:** `scripts/check.sh` PASS (64 tests; baseline 64 at `d4791e8`)
+- **Approved:** Proposal 14, approved by John on 2026-10-25 (PASS/FAIL kept as plain text)
+
 ## 11. Design doc, D15/D16 decision text, pending proposals — `98ac8da`
 
 - **What:** `docs/DESIGN.md` (all sections written), `CLAUDE.md` (D15 and D16 decision rows),
