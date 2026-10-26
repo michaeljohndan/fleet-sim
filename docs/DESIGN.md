@@ -280,38 +280,7 @@ The simulation's determinism requires no wall-clock time, no unseeded randomness
 
 Dependencies for the architecture.
 
-```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 80, "rankSpacing": 110, "curve": "basis", "padding": 20}}}%%
-flowchart TD
-    main["main.rs<br/>(I/O loop)"]
-    lib["lib.rs<br/>handle_line:<br/>parse → execute → render"]
-    sim["sim.rs<br/>(engine)"]
-    history["history.rs"]
-    rules["rules.rs<br/>(pure helpers)"]
-    protocol["protocol.rs<br/>(parse / format)"]
-    state["state.rs<br/>(no dependencies)"]
-    error["error.rs<br/>(std only)"]
-    serde[("serde /<br/>serde_json")]
-
-    main -->|"handle_line,<br/>render_error"| lib
-    lib -->|"execute,<br/>state_for"| sim
-    lib -->|"parse_command,<br/>render_state"| protocol
-
-    sim -->|"record / get"| history
-    sim -->|"checks, D8 ops"| rules
-    sim -->|"Command types"| protocol
-
-    history -->|"snapshots"| state
-    sim -->|"world data"| state
-    rules -->|"cargo, status"| state
-    protocol -->|"read for output"| state
-
-    sim --> error
-    rules --> error
-    protocol --> error
-
-    protocol -->|"(de)serialize"| serde
-```
+![Dependencies for architecture](../diagrams/dependencies/white/top_down_white.png)
 
 Unlabelled arrows into `error` mean the module returns `SimError`.
 
@@ -343,40 +312,7 @@ Notable things in the implementation:
 
 #### Lifecycle of one command. Each step's italic label names the design pattern it uses
 
-```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 50, "rankSpacing": 70, "curve": "basis", "padding": 15}}}%%
-flowchart LR
-    subgraph shell["Imperative shell (main.rs)"]
-        IN["stdin line"]
-        OUT["stdout line"]
-    end
-    subgraph core["Functional core (lib.rs handle_line → protocol, sim)"]
-        P["parse → Command<br/><i>Command pattern</i>"]
-        Q{"query?"}
-        V["validate: pure, reads COMMITTED<br/><i>validate / apply split</i>"]
-        A["apply: cannot fail, writes PLANNED<br/><i>double buffer</i>"]
-        L[("pending log")]
-        T["tick: planned → committed"]
-        H[("HistoryStore<br/><i>snapshot + strategy</i>")]
-        R["render views, fixed key order<br/><i>serialization views</i>"]
-        E["error line"]
-    end
-    IN --> P
-    P -->|malformed| E
-    P --> Q
-    Q -->|"get_state"| R
-    Q -->|"get_state_at(T)"| H
-    Q -->|"mutating command"| V
-    V -->|"SimError, nothing changed"| E
-    V -->|Effect| A
-    A -->|"non-tick commands"| L
-    A -->|"tick"| T
-    T -->|record| H
-    H -->|"committed at T"| R
-    A -->|"planned"| R
-    R --> OUT
-    E --> OUT
-```
+![Command Lifecycle](../diagrams/command_lifecycle/white/top_down_white.png)
 
 ### 4.3 Interface design
 

@@ -1,0 +1,30 @@
+%%{init: {"theme": "default", "flowchart": {"nodeSpacing": 80, "rankSpacing": 110, "curve": "basis", "padding": 20}}}%%
+flowchart TD
+    main["main.rs<br/>(I/O loop)"]
+    lib["lib.rs<br/>handle_line:<br/>parse → execute → render"]
+    sim["sim.rs<br/>(engine)"]
+    history["history.rs"]
+    rules["rules.rs<br/>(pure helpers)"]
+    protocol["protocol.rs<br/>(parse / format)"]
+    state["state.rs<br/>(no dependencies)"]
+    error["error.rs<br/>(std only)"]
+    serde[("serde /<br/>serde_json")]
+
+    main -->|"handle_line,<br/>render_error"| lib
+    lib -->|"execute,<br/>state_for"| sim
+    lib -->|"parse_command,<br/>render_state"| protocol
+
+    sim -->|"record / get"| history
+    sim -->|"checks, D8 ops"| rules
+    sim -->|"Command types"| protocol
+
+    history -->|"snapshots"| state
+    sim -->|"world data"| state
+    rules -->|"cargo, status"| state
+    protocol -->|"read for output"| state
+
+    sim --> error
+    rules --> error
+    protocol --> error
+
+    protocol -->|"(de)serialize"| serde
