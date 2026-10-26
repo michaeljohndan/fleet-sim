@@ -16,6 +16,38 @@ Template:
 - **Approved:** <yes, by John on YYYY-MM-DD>
 ```
 
+## 17. Diagrams moved into `diagrams/` — `4fa66d6`
+
+- **What:** `diagrams/dependencies/` and `diagrams/command_lifecycle/` (`.mmd` sources plus
+  white and transparent PNGs, top-down and left-right); `docs/DESIGN.md` 4.1 and 4.2 now link the
+  white top-down PNGs instead of inline mermaid blocks
+- **Why:** keep diagram sources organized and render the doc the same on every viewer
+- **Fixes:** inline mermaid that only renders where mermaid is supported; dependencies PNGs
+  re-rendered from `top_down.mmd` with mermaid-cli 12.0.0 (`-s 3`) to match the lifecycle theme
+- **Behavior:** none (docs only; diagram content unchanged, checked against `src/` imports)
+- **Gate:** `scripts/check.sh` PASS (65 tests; no code changed since `9393a66`)
+- **Approved:** written and committed by John on 2026-10-26
+
+## 16. Demo scenario for history queries — `ac237a3`
+
+- **What:** `scenarios/history.jsonl` (cargo-mode init, dock, load, rejected tick with a bad
+  manifest, `get_state_at` for ticks 0-3)
+- **Why:** a ready-to-run demo of Follow-on 2, referenced from the README "Demo scenarios" section
+- **Fixes:** README pointed at a `scenarios/` folder that was not committed
+- **Behavior:** none (data only; not read by any test)
+- **Gate:** `scripts/check.sh` PASS (65 tests; no code changed since `9393a66`)
+- **Approved:** written and committed by John on 2026-10-25
+
+## 15. Design doc cleanup — `92cfce7`
+
+- **What:** `docs/DESIGN.md` (removed the template's hidden instruction comment; 9.1 lists the
+  open questions for the recruiter: follow-ons, byte-for-byte/array order, D15 auto-detect)
+- **Why:** template scaffolding should not ship in the submission
+- **Fixes:** leftover template comment; open questions only tracked in `CLAUDE.md`
+- **Behavior:** none (docs only; written by John)
+- **Gate:** `scripts/check.sh` PASS (65 tests; no code changed since `9393a66`)
+- **Approved:** written and committed by John on 2026-10-25
+
 ## 14. Design doc updated for Proposal 13 — `9393a66`
 
 - **What:** `docs/DESIGN.md` (header commit, 4.1 `lib.rs`/`protocol.rs` rows, labelled acyclic
