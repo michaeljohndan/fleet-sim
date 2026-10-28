@@ -1,0 +1,11 @@
+{"command":"init","parameters":{"travel_times":[[0,4,7],[4,0,3],[7,3,0]],"dock_throughput":[2,2,2],"vessels":[{"id":"v1","location":0},{"id":"v2","location":0}],"cargo_manifest":[{"location":0,"destination":2,"quantity":1}]}}
+{"command":"dock","parameters":{"vessel_id":"v1"}}
+{"command":"set_destination","parameters":{"vessel_id":"v1","destination":1}}
+{"command":"undock","parameters":{"vessel_id":"v1"}}
+{"command":"dock","parameters":{"vessel_id":"v1"}}
+{"command":"dock","parameters":{"vessel_id":"v2"}}
+{"command":"tick","parameters":{}}
+{"command":"load","parameters":{"vessel_id":"v1","destination":2}}
+{"command":"load","parameters":{"vessel_id":"v2","destination":2}}
+{"command":"get_state_at","parameters":{"tick":0}}
+{"command":"bogus","parameters":{}}
