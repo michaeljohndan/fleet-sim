@@ -79,6 +79,8 @@ Risk:           <what could break; how the gate would catch it>
 | D15 | cargo mode on iff init has `dock_throughput`; base mode prints no cargo fields. An init that includes cargo in its manifest but no dock_throughput is rejected with the cargo-mode error, and the world stays uninitialized (D12). In base mode, any cargo_manifest field is rejected, even an empty one (`null` counts as absent). |
 | D16 | all messages in `SimError`'s `Display`; spec wording reproduced exactly; start lowercase, no trailing period |
 | D18 | swap with load == unload destination costs 0 (no net change, per D8): every path to the same state costs the same |
+| D19 | `recall` valid iff committed = transit. Committed idle (even with a pending trip, or on the arrival tick) or docked → "not in transit"; committed returning → "already returning". Repeat in the same tick = identical result. A pending trip is cancelled with D1, not recall |
+| D20 | recall at tick T of transit A→B: elapsed = travel(A,B) − (arrives_at_tick − T); planned = `returning` from B to A, arrives T + elapsed (ignores travel(B,A)). Prints `{"state":"returning","from":B,"to":A,"arrives_at_tick":..}`, a state value the spec does not define |
 
 ## Architecture (one job per module)
 

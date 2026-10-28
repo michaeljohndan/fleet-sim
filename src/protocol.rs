@@ -48,6 +48,9 @@ pub enum Command {
         load_destination: i64,
         unload_destination: i64,
     },
+    Recall {
+        vessel_id: String,
+    },
     GetState {},
     GetStateAt {
         tick: i64,
@@ -202,6 +205,16 @@ impl Serialize for VesselView<'_> {
                 map.serialize_entry("to", &to)?;
                 map.serialize_entry("arrives_at_tick", &arrives_at_tick)?;
             }
+            Status::Returning {
+                from,
+                to,
+                arrives_at_tick,
+            } => {
+                map.serialize_entry("state", "returning")?;
+                map.serialize_entry("from", &from)?;
+                map.serialize_entry("to", &to)?;
+                map.serialize_entry("arrives_at_tick", &arrives_at_tick)?;
+            }
             Status::Docked { location } => {
                 map.serialize_entry("state", "docked")?;
                 map.serialize_entry("location", &location)?;
@@ -298,6 +311,37 @@ mod tests {
         assert_eq!(
             render_state(&names, &state, true),
             r#"{"status":"ok","payload":{"tick":3,"vessels":{"v2":{"state":"docked","location":1,"cargo":[{"destination":2,"quantity":1}]},"v10":{"state":"transit","from":0,"to":2,"arrives_at_tick":5,"cargo":[]}},"cargo":[{"location":1,"destination":0,"quantity":3}]}}"#
+        );
+    }
+
+    /// D20: a returning vessel keeps the transit key order under its own state name.
+    #[test]
+    fn render_returning_vessel() {
+        let names = vec!["v1".to_string()];
+        let mut cargo = CargoList::default();
+        cargo.add(1, 1);
+        let state = WorldState {
+            tick: 6,
+            vessels: vec![Vessel {
+                status: Status::Returning {
+                    from: 1,
+                    to: 0,
+                    arrives_at_tick: 12,
+                },
+                cargo,
+            }],
+            docks: DockInventory::default(),
+            manifested: 1,
+            delivered: 0,
+        };
+
+        assert_eq!(
+            render_state(&names, &state, false),
+            r#"{"status":"ok","payload":{"tick":6,"vessels":{"v1":{"state":"returning","from":1,"to":0,"arrives_at_tick":12}}}}"#
+        );
+        assert_eq!(
+            render_state(&names, &state, true),
+            r#"{"status":"ok","payload":{"tick":6,"vessels":{"v1":{"state":"returning","from":1,"to":0,"arrives_at_tick":12,"cargo":[{"destination":1,"quantity":1}]}},"cargo":[]}}"#
         );
     }
 }

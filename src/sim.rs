@@ -348,6 +348,37 @@ impl World {
                     unload,
                 })
             }
+            Command::Recall { vessel_id } => {
+                let vessel = self.vessel(vessel_id)?;
+                // D19: only a committed outbound trip can be recalled. A pending trip
+                // is cancelled with D1, not recall; a recalled trip cannot be recalled.
+                let (from, to, arrives_at_tick) = match self.committed.vessels[vessel].status {
+                    Status::Transit {
+                        from,
+                        to,
+                        arrives_at_tick,
+                    } => (from, to, arrives_at_tick),
+                    Status::Returning { .. } => {
+                        return Err(SimError::AlreadyReturning(vessel_id.clone()))
+                    }
+                    Status::Idle { .. } | Status::Docked { .. } => {
+                        return Err(SimError::NotInTransit(vessel_id.clone()))
+                    }
+                };
+                // D20: the way back takes as many ticks as the way out so far.
+                // elapsed = now - departed = travel - (arrives_at - now). Committed
+                // transit always has departed <= now < arrives_at, so 1 <= elapsed < travel.
+                let tick = self.committed.tick;
+                let elapsed = self.topology.travel_time(from, to) - (arrives_at_tick - tick);
+                Ok(Effect::SetStatus {
+                    vessel,
+                    status: Status::Returning {
+                        from: to,
+                        to: from,
+                        arrives_at_tick: tick + elapsed,
+                    },
+                })
+            }
             Command::Init(_) | Command::GetState {} | Command::GetStateAt { .. } => {
                 unreachable!("handled in execute before validation")
             }
@@ -510,6 +541,11 @@ impl World {
                 to,
                 arrives_at_tick,
                 ..
+            }
+            | Status::Returning {
+                to,
+                arrives_at_tick,
+                ..
             } = vessel.status
             {
                 if arrives_at_tick <= state.tick {
@@ -596,6 +632,9 @@ impl World {
         for (i, v) in c.vessels.iter().enumerate() {
             let name = &self.names[i];
             if let Status::Transit {
+                arrives_at_tick, ..
+            }
+            | Status::Returning {
                 arrives_at_tick, ..
             } = v.status
             {

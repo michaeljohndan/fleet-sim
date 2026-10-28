@@ -116,7 +116,7 @@ fn random_command(rng: &mut Rng, ids: &[String], n: usize, cargo_mode: bool) -> 
     let d2 = rng.range(0, n as i64 - 1);
     let loc = rng.range(0, n as i64 - 1);
     let qty = rng.range(0, 3);
-    match rng.below(if cargo_mode { 100 } else { 45 }) {
+    match rng.below(if cargo_mode { 105 } else { 50 }) {
         0..=19 => {
             if cargo_mode && rng.below(2) == 0 {
                 format!(
@@ -135,12 +135,13 @@ fn random_command(rng: &mut Rng, ids: &[String], n: usize, cargo_mode: bool) -> 
         ),
         38..=39 => "{not json".to_string(),
         40..=44 => GET_STATE.to_string(),
-        45..=59 => format!(r#"{{"command":"dock","parameters":{{"vessel_id":"{vessel}"}}}}"#),
-        60..=69 => format!(r#"{{"command":"undock","parameters":{{"vessel_id":"{vessel}"}}}}"#),
-        70..=82 => format!(
+        45..=49 => format!(r#"{{"command":"recall","parameters":{{"vessel_id":"{vessel}"}}}}"#),
+        50..=64 => format!(r#"{{"command":"dock","parameters":{{"vessel_id":"{vessel}"}}}}"#),
+        65..=74 => format!(r#"{{"command":"undock","parameters":{{"vessel_id":"{vessel}"}}}}"#),
+        75..=87 => format!(
             r#"{{"command":"load","parameters":{{"vessel_id":"{vessel}","destination":{d}}}}}"#
         ),
-        83..=94 => format!(
+        88..=99 => format!(
             r#"{{"command":"unload","parameters":{{"vessel_id":"{vessel}","destination":{d}}}}}"#
         ),
         _ => format!(
@@ -189,4 +190,14 @@ fn random_runs_exercise_cargo_operations() {
             .count();
     }
     assert!(loads > 0, "random runs never put cargo on a vessel");
+}
+
+#[test]
+fn random_runs_exercise_recall() {
+    // Guards against a generator that never commits a trip before recalling it.
+    let returning = (0u64..40)
+        .flat_map(run_seed)
+        .filter(|l| l.contains(r#""state":"returning""#))
+        .count();
+    assert!(returning > 0, "random runs never recalled a vessel");
 }

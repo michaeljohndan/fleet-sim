@@ -790,3 +790,220 @@ fn d17_unload_then_load_moves_vessel_entry_to_end() {
     );
     assert_eq!(s["cargo"], json!([]));
 }
+
+// ------------------------------------------------------------ D19 D20 recall
+
+/// Two ports with the given travel matrix; v1 idle at 0.
+fn two_ports(travel: &str) -> Harness {
+    let mut h = Harness::new();
+    h.cmd(
+        "init",
+        &format!(r#"{{"travel_times":{travel},"vessels":[{{"id":"v1","location":0}}]}}"#),
+    );
+    h
+}
+
+fn ticks(h: &mut Harness, n: u64) {
+    for _ in 0..n {
+        h.tick();
+    }
+}
+
+#[test]
+fn d19_recall_is_rejected_when_committed_idle() {
+    let mut h = Harness::base();
+    assert_eq!(
+        h.cmd_err("recall", &vid("v1")),
+        "vessel v1 is not in transit"
+    );
+    assert_eq!(h.cmd_err("recall", &vid("v9")), "unknown vessel v9");
+}
+
+#[test]
+fn d19_recall_does_not_cancel_a_pending_trip() {
+    let mut h = Harness::base();
+    h.cmd("set_destination", &dest("v1", 1));
+    // Planned shows transit, but committed is idle (same pattern as D5).
+    assert_eq!(
+        h.cmd_err("recall", &vid("v1")),
+        "vessel v1 is not in transit"
+    );
+    assert_eq!(
+        h.tick()["vessels"]["v1"],
+        json!({"state":"transit","from":0,"to":1,"arrives_at_tick":4})
+    );
+}
+
+#[test]
+fn d19_recall_is_rejected_when_docked_or_dock_is_pending() {
+    let mut h = Harness::cargo("[2,2,2]", "[]");
+    h.cmd("dock", &vid("v1"));
+    assert_eq!(
+        h.cmd_err("recall", &vid("v1")),
+        "vessel v1 is not in transit"
+    );
+    h.tick();
+    assert_eq!(
+        h.cmd_err("recall", &vid("v1")),
+        "vessel v1 is not in transit"
+    );
+}
+
+#[test]
+fn d19_recall_is_rejected_on_the_arrival_tick() {
+    let mut h = Harness::base();
+    h.cmd("set_destination", &dest("v1", 1));
+    ticks(&mut h, 3);
+    h.cmd("recall", &vid("v1")); // last tick before arrival is still in transit
+    let mut h = Harness::base();
+    h.cmd("set_destination", &dest("v1", 1));
+    ticks(&mut h, 4);
+    assert_eq!(h.vessel("v1"), json!({"state":"idle","location":1}));
+    assert_eq!(
+        h.cmd_err("recall", &vid("v1")),
+        "vessel v1 is not in transit"
+    );
+    assert_eq!(
+        h.tick()["vessels"]["v1"],
+        json!({"state":"idle","location":1})
+    );
+}
+
+#[test]
+fn d19_repeat_recall_same_tick_is_idempotent_and_rejected_after_tick() {
+    let mut h = two_ports("[[0,10],[10,0]]");
+    h.cmd("set_destination", &dest("v1", 1));
+    ticks(&mut h, 6);
+    let first = h.cmd("recall", &vid("v1"));
+    assert_eq!(h.cmd("recall", &vid("v1")), first);
+    for _ in 7..12 {
+        h.tick();
+        assert_eq!(
+            h.cmd_err("recall", &vid("v1")),
+            "vessel v1 is already returning"
+        );
+    }
+    h.tick(); // tick 12: back at 0
+    assert_eq!(
+        h.cmd_err("recall", &vid("v1")),
+        "vessel v1 is not in transit"
+    );
+    h.cmd("set_destination", &dest("v1", 1));
+    h.tick();
+    h.cmd("recall", &vid("v1")); // a new outbound trip can be recalled
+}
+
+#[test]
+fn d20_sixty_percent_out_takes_sixty_percent_back() {
+    // Example 1: travel 10, depart tick 0, recall at tick 6 -> back at tick 12.
+    let mut h = two_ports("[[0,10],[10,0]]");
+    h.cmd("set_destination", &dest("v1", 1));
+    ticks(&mut h, 6);
+    let returning = json!({"state":"returning","from":1,"to":0,"arrives_at_tick":12});
+    assert_eq!(h.cmd("recall", &vid("v1"))["vessels"]["v1"], returning);
+    for t in 7..12 {
+        let s = h.tick();
+        assert_eq!(s["tick"], t);
+        assert_eq!(s["vessels"]["v1"], returning);
+    }
+    assert_eq!(
+        h.tick()["vessels"]["v1"],
+        json!({"state":"idle","location":0})
+    );
+    let at7 = h.cmd("get_state_at", r#"{"tick":7}"#);
+    assert_eq!(at7["vessels"]["v1"], returning);
+
+    // Example 2: travel 5, depart tick 3 (arrives 8), recall at tick 6 -> back at 9.
+    let mut h = two_ports("[[0,5],[5,0]]");
+    ticks(&mut h, 3);
+    h.cmd("set_destination", &dest("v1", 1));
+    ticks(&mut h, 3);
+    assert_eq!(
+        h.cmd("recall", &vid("v1"))["vessels"]["v1"],
+        json!({"state":"returning","from":1,"to":0,"arrives_at_tick":9})
+    );
+}
+
+#[test]
+fn d20_earliest_and_latest_recall() {
+    let mut h = two_ports("[[0,10],[10,0]]");
+    h.cmd("set_destination", &dest("v1", 1));
+    h.tick();
+    assert_eq!(
+        h.cmd("recall", &vid("v1"))["vessels"]["v1"]["arrives_at_tick"],
+        2
+    );
+    let mut h = two_ports("[[0,10],[10,0]]");
+    h.cmd("set_destination", &dest("v1", 1));
+    ticks(&mut h, 9);
+    assert_eq!(
+        h.cmd("recall", &vid("v1"))["vessels"]["v1"]["arrives_at_tick"],
+        18
+    );
+}
+
+#[test]
+fn d20_return_uses_outbound_elapsed_not_reverse_travel_time() {
+    let mut h = two_ports("[[0,10],[2,0]]");
+    h.cmd("set_destination", &dest("v1", 1));
+    ticks(&mut h, 6);
+    assert_eq!(
+        h.cmd("recall", &vid("v1"))["vessels"]["v1"]["arrives_at_tick"],
+        12
+    );
+}
+
+#[test]
+fn d20_returning_vessel_keeps_cargo_and_rejects_other_commands() {
+    let mut h = Harness::new();
+    h.cmd(
+        "init",
+        r#"{"travel_times":[[0,10],[10,0]],"dock_throughput":[1,1],"vessels":[{"id":"v1","location":0}],"cargo_manifest":[{"location":0,"destination":1,"quantity":1}]}"#,
+    );
+    h.cmd("dock", &vid("v1"));
+    h.tick();
+    h.cmd("load", &dest("v1", 1));
+    h.cmd("undock", &vid("v1"));
+    h.tick();
+    h.cmd("set_destination", &dest("v1", 1)); // tick 2, arrives 12
+    ticks(&mut h, 3);
+    h.cmd("recall", &vid("v1")); // tick 5: elapsed 3, back at 8
+    let s = h.tick();
+    assert_eq!(
+        s["vessels"]["v1"],
+        json!({"state":"returning","from":1,"to":0,"arrives_at_tick":8,
+               "cargo":[{"destination":1,"quantity":1}]})
+    );
+    assert_eq!(
+        h.cmd_err("set_destination", &dest("v1", 1)),
+        "vessel v1 is not idle"
+    );
+    assert_eq!(h.cmd_err("dock", &vid("v1")), "vessel v1 is not idle");
+    assert_eq!(h.cmd_err("undock", &vid("v1")), "vessel v1 is not docked");
+    assert_eq!(
+        h.cmd_err("unload", &dest("v1", 1)),
+        "vessel v1 is not docked"
+    );
+}
+
+#[test]
+fn recall_output_prints_returning_in_fixed_key_order() {
+    let mut sim = fleet_sim::Simulation::new();
+    let lines = [
+        r#"{"command":"init","parameters":{"travel_times":[[0,10],[10,0]],"vessels":[{"id":"v1","location":0}]}}"#,
+        r#"{"command":"set_destination","parameters":{"vessel_id":"v1","destination":1}}"#,
+        r#"{"command":"tick","parameters":{}}"#,
+    ];
+    for line in lines {
+        fleet_sim::handle_line(&mut sim, line).unwrap();
+    }
+    let out = fleet_sim::handle_line(
+        &mut sim,
+        r#"{"command":"recall","parameters":{"vessel_id":"v1"}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        out,
+        r#"{"status":"ok","payload":{"tick":1,"vessels":{"v1":{"state":"returning","from":1,"to":0,"arrives_at_tick":2}}}}"#
+    );
+}

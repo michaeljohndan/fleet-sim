@@ -17,6 +17,13 @@ pub enum Status {
         to: Loc,
         arrives_at_tick: u64,
     },
+    /// A recalled trip heading back (D20). `from` is the abandoned destination,
+    /// `to` the origin. Kept apart from `Transit` so a second recall is rejected.
+    Returning {
+        from: Loc,
+        to: Loc,
+        arrives_at_tick: u64,
+    },
     Docked {
         location: Loc,
     },

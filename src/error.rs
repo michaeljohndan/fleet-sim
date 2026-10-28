@@ -28,6 +28,10 @@ pub enum SimError {
     NotIdle(String),
     /// Spec wording: the vessel's committed state is not docked.
     NotDocked(String),
+    /// `recall` when the vessel's committed state is not an outbound trip (D19).
+    NotInTransit(String),
+    /// `recall` when the vessel's committed state is already a recalled trip (D19).
+    AlreadyReturning(String),
     NoDockCargo {
         location: usize,
         destination: usize,
@@ -72,6 +76,8 @@ impl fmt::Display for SimError {
             ),
             SimError::NotIdle(id) => write!(f, "vessel {id} is not idle"),
             SimError::NotDocked(id) => write!(f, "vessel {id} is not docked"),
+            SimError::NotInTransit(id) => write!(f, "vessel {id} is not in transit"),
+            SimError::AlreadyReturning(id) => write!(f, "vessel {id} is already returning"),
             SimError::NoDockCargo {
                 location,
                 destination,
@@ -115,6 +121,8 @@ mod tests {
             | SimError::DestinationOutOfRange { .. }
             | SimError::NotIdle(_)
             | SimError::NotDocked(_)
+            | SimError::NotInTransit(_)
+            | SimError::AlreadyReturning(_)
             | SimError::NoDockCargo { .. }
             | SimError::NoVesselCargo { .. }
             | SimError::ThroughputExceeded { .. }
@@ -156,6 +164,14 @@ mod tests {
             ),
             (SimError::NotIdle("v1".into()), "vessel v1 is not idle"),
             (SimError::NotDocked("v1".into()), "vessel v1 is not docked"),
+            (
+                SimError::NotInTransit("v1".into()),
+                "vessel v1 is not in transit",
+            ),
+            (
+                SimError::AlreadyReturning("v1".into()),
+                "vessel v1 is already returning",
+            ),
             (
                 SimError::NoDockCargo {
                     location: 0,
