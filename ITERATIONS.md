@@ -16,6 +16,21 @@ Template:
 - **Approved:** <yes, by John on YYYY-MM-DD>
 ```
 
+## 18. Recall command — `07fc57b`
+
+- **What:** `Command::Recall` (`protocol.rs`), `Status::Returning` (`state.rs`), recall arm in
+  `validate`, `advance` and `check_invariants` cover `Returning` (`sim.rs`), `NotInTransit` and
+  `AlreadyReturning` (`error.rs`); 10 decision tests, a render test, recall in the random
+  generator plus a coverage guard; `CLAUDE.md` rows D19, D20
+- **Why:** feature request; validity reads committed status only (golden rule)
+- **Fixes:** a committed trip could not be aborted
+- **Behavior:** new command and new printed state `"returning"`; existing outputs and fixtures
+  unchanged. Recall of transit A→B at tick T arrives back at
+  T + travel(A,B) − (arrives_at_tick − T); idle, docked and returning vessels are rejected
+- **Gate:** `scripts/check.sh` PASS (77 tests); `FLEET_SIM_SEEDS=5000` PASS; the 10 new
+  decision tests fail against the previous `src/`
+- **Approved:** Proposal 15, approved by John on 2026-10-28
+
 ## 17. Diagrams moved into `diagrams/` — `4fa66d6`
 
 - **What:** `diagrams/dependencies/` and `diagrams/command_lifecycle/` (`.mmd` sources plus
